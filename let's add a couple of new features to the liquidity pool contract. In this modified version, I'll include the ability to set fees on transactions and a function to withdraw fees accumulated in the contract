@@ -1,0 +1,71 @@
+import starknet;
+
+contract LiquidityPool {
+    starknet.StorageSlot!({user: felt, tokenA_balance: felt, tokenB_balance: felt, feePercentage: felt, accumulatedFees: felt});
+
+    public (user: felt) func initialize(feePercentage: felt) {
+        // Initialize the contract
+        self.storage.user = tx.origin;
+        self.storage.tokenA_balance = 0;
+        self.storage.tokenB_balance = 0;
+        self.storage.feePercentage = feePercentage;
+        self.storage.accumulatedFees = 0;
+    }
+
+    public (tokenA_amount: felt, tokenB_amount: felt) func addLiquidity(tokenA_amount: felt, tokenB_amount: felt) {
+        // Add liquidity
+        self.storage.tokenA_balance += tokenA_amount;
+        self.storage.tokenB_balance += tokenB_amount;
+    }
+
+    public (tokenA_amount: felt, tokenB_amount: felt) func removeLiquidity() {
+        // Remove liquidity
+        assert(self.storage.user == tx.origin, "Not the liquidity provider");
+        let tokenA_amount = self.storage.tokenA_balance;
+        let tokenB_amount = self.storage.tokenB_balance;
+        self.storage.tokenA_balance = 0;
+        self.storage.tokenB_balance = 0;
+
+        // Deduct fees before withdrawal
+        let fee = (tokenA_amount * self.storage.feePercentage) / 100;
+        self.storage.accumulatedFees += fee;
+
+        // Send liquidity to the user after deducting fees
+        self.transfer(tx.origin, tokenA_amount - fee, tokenB_amount);
+    }
+
+    public (tokenA_balance: felt, tokenB_balance: felt, feePercentage: felt) view func getLiquidityAndFees() -> (felt, felt, felt) {
+        // Get current liquidity and fee percentage
+        return (self.storage.tokenA_balance, self.storage.tokenB_balance, self.storage.feePercentage);
+    }
+
+    public (tokenB_received: felt) func swapTokenAForTokenB(tokenA_amount: felt) {
+        // Swap token A for token B
+        assert(self.storage.tokenA_balance >= tokenA_amount, "Insufficient liquidity");
+        let tokenB_amount = calculateSwapAmount(tokenA_amount);
+        self.storage.tokenA_balance -= tokenA_amount;
+        self.storage.tokenB_balance += tokenB_amount;
+
+        // Deduct fees from the swapped amount
+        let fee = (tokenB_amount * self.storage.feePercentage) / 100;
+        self.storage.accumulatedFees += fee;
+    }
+
+    public (feeAmount: felt) func withdrawFees() {
+        // Withdraw accumulated fees
+        assert(self.storage.user == tx.origin, "Not the liquidity provider");
+        let feeAmount = self.storage.accumulatedFees;
+        self.storage.accumulatedFees = 0;
+        self.transfer(tx.origin, 0, feeAmount);
+    }
+
+    private (tokenB_amount: felt) func calculateSwapAmount(tokenA_amount: felt) -> felt {
+        // Calculate the amount of token B to be received
+        // You can use your own swapping algorithm here
+        return tokenA_amount * 2;
+    }
+
+    private func transfer(to: felt, tokenA_amount: felt, tokenB_amount: felt) {
+        // A simplified function to simulate transferring tokens (implement your own logic)
+    }
+}
